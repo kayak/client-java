@@ -57,7 +57,8 @@ public class LoggingContext {
 	/* default back-pressure buffer size */
 	public static final int DEFAULT_BUFFER_SIZE = 10;
 
-	static final ThreadLocal<LoggingContext> CONTEXT_THREAD_LOCAL = new ThreadLocal<LoggingContext>();
+    // switch to inheritable thread local to support TestNG 6.11+
+	static final ThreadLocal<LoggingContext> CONTEXT_THREAD_LOCAL = new InheritableThreadLocal<LoggingContext>();
 
 	/**
 	 * Initializes new logging context and attaches it to current thread
