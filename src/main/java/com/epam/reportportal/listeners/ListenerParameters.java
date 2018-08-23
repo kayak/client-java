@@ -15,15 +15,33 @@
  */
 package com.epam.reportportal.listeners;
 
+import static com.epam.reportportal.utils.properties.ListenerProperty.BASE_URL;
+import static com.epam.reportportal.utils.properties.ListenerProperty.BATCH_SIZE_LOGS;
+import static com.epam.reportportal.utils.properties.ListenerProperty.DESCRIPTION;
+import static com.epam.reportportal.utils.properties.ListenerProperty.ENABLE;
+import static com.epam.reportportal.utils.properties.ListenerProperty.FORCE_FINISH_LAUNCH;
+import static com.epam.reportportal.utils.properties.ListenerProperty.IO_POOL_SIZE;
+import static com.epam.reportportal.utils.properties.ListenerProperty.IS_CONVERT_IMAGE;
+import static com.epam.reportportal.utils.properties.ListenerProperty.KEYSTORE_PASSWORD;
+import static com.epam.reportportal.utils.properties.ListenerProperty.KEYSTORE_RESOURCE;
+import static com.epam.reportportal.utils.properties.ListenerProperty.LAUNCH_NAME;
+import static com.epam.reportportal.utils.properties.ListenerProperty.LAUNCH_TAGS;
+import static com.epam.reportportal.utils.properties.ListenerProperty.MAX_CONNECTIONS_PER_ROUTE;
+import static com.epam.reportportal.utils.properties.ListenerProperty.MAX_CONNECTIONS_TOTAL;
+import static com.epam.reportportal.utils.properties.ListenerProperty.MODE;
+import static com.epam.reportportal.utils.properties.ListenerProperty.PROJECT_NAME;
+import static com.epam.reportportal.utils.properties.ListenerProperty.REPORTING_TIMEOUT;
+import static com.epam.reportportal.utils.properties.ListenerProperty.RERUN;
+import static com.epam.reportportal.utils.properties.ListenerProperty.SKIPPED_AS_ISSUE;
+import static com.epam.reportportal.utils.properties.ListenerProperty.UUID;
+
+import java.util.Set;
+
 import com.epam.reportportal.service.LoggingContext;
 import com.epam.reportportal.utils.TagsParser;
 import com.epam.reportportal.utils.properties.PropertiesLoader;
 import com.epam.ta.reportportal.ws.model.launch.Mode;
 import com.google.common.annotations.VisibleForTesting;
-
-import java.util.Set;
-
-import static com.epam.reportportal.utils.properties.ListenerProperty.*;
 
 /**
  * Report portal listeners parameters
@@ -38,6 +56,7 @@ public class ListenerParameters {
 	private static final boolean DEFAULT_SKIP_ISSUE = true;
 	private static final boolean DEFAULT_CONVERT_IMAGE = false;
 	private static final boolean DEFAULT_RETURN = false;
+	private static final boolean DEFAULT_FORCE_FINISH_LAUNCH = false;
 
 	private String description;
 	private String uuid;
@@ -45,6 +64,7 @@ public class ListenerParameters {
 	private String projectName;
 	private String launchName;
 	private Mode launchRunningMode;
+	private boolean forceFinishLaunch;
 	private Set<String> tags;
 	private Boolean enable;
 	private Boolean isSkippedAnIssue;
@@ -81,6 +101,7 @@ public class ListenerParameters {
 		this.launchName = properties.getProperty(LAUNCH_NAME);
 		this.tags = TagsParser.parseAsSet(properties.getProperty(LAUNCH_TAGS));
 		this.launchRunningMode = parseLaunchMode(properties.getProperty(MODE));
+		this.forceFinishLaunch = properties.getPropertyAsBoolean(FORCE_FINISH_LAUNCH, DEFAULT_FORCE_FINISH_LAUNCH);
 		this.enable = properties.getPropertyAsBoolean(ENABLE, DEFAULT_ENABLE);
 		this.isSkippedAnIssue = properties.getPropertyAsBoolean(SKIPPED_AS_ISSUE, DEFAULT_SKIP_ISSUE);
 
@@ -241,6 +262,14 @@ public class ListenerParameters {
 		this.maxConnectionsTotal = maxConnectionsTotal;
 	}
 
+	public boolean isForceFinishLaunch() {
+		return forceFinishLaunch;
+	}
+
+	public void setForceFinishLaunch(boolean forceFinishLaunch) {
+		this.forceFinishLaunch = forceFinishLaunch;
+	}
+
 	@VisibleForTesting
 	Mode parseLaunchMode(String mode) {
 		return Mode.isExists(mode) ? Mode.valueOf(mode.toUpperCase()) : Mode.DEFAULT;
@@ -267,6 +296,7 @@ public class ListenerParameters {
 		sb.append(", ioPoolSize=").append(ioPoolSize);
 		sb.append(", maxConnectionsPerRoute=").append(maxConnectionsPerRoute);
 		sb.append(", maxConnectionsTotal=").append(maxConnectionsTotal);
+		sb.append(", forceFinishLaunch=").append(forceFinishLaunch);
 		sb.append('}');
 		return sb.toString();
 	}

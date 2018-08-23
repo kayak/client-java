@@ -15,12 +15,29 @@
  */
 package com.epam.reportportal.service;
 
+import static com.epam.reportportal.service.LoggingCallback.LOG_ERROR;
+import static com.epam.reportportal.service.LoggingCallback.LOG_SUCCESS;
+import static com.epam.reportportal.service.LoggingCallback.logCreated;
+import static com.epam.reportportal.utils.SubscriptionUtils.logCompletableResults;
+import static com.epam.reportportal.utils.SubscriptionUtils.logMaybeResults;
+import static com.google.common.collect.Lists.newArrayList;
+
+import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+
 import com.epam.reportportal.exception.ReportPortalException;
 import com.epam.reportportal.listeners.ListenerParameters;
 import com.epam.reportportal.listeners.Statuses;
 import com.epam.reportportal.utils.LaunchFile;
 import com.epam.reportportal.utils.RetryWithDelay;
-import com.epam.ta.reportportal.ws.model.*;
+import com.epam.ta.reportportal.ws.model.EntryCreatedRS;
+import com.epam.ta.reportportal.ws.model.ErrorType;
+import com.epam.ta.reportportal.ws.model.FinishExecutionRQ;
+import com.epam.ta.reportportal.ws.model.FinishTestItemRQ;
+import com.epam.ta.reportportal.ws.model.OperationCompletionRS;
+import com.epam.ta.reportportal.ws.model.StartTestItemRQ;
 import com.epam.ta.reportportal.ws.model.issue.Issue;
 import com.epam.ta.reportportal.ws.model.launch.StartLaunchRQ;
 import com.epam.ta.reportportal.ws.model.launch.StartLaunchRS;
@@ -28,19 +45,16 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import io.reactivex.*;
-import io.reactivex.functions.*;
+import io.reactivex.Completable;
+import io.reactivex.Maybe;
+import io.reactivex.MaybeEmitter;
+import io.reactivex.MaybeOnSubscribe;
+import io.reactivex.MaybeSource;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
+import io.reactivex.functions.Predicate;
 import io.reactivex.schedulers.Schedulers;
-
-import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
-
-import static com.epam.reportportal.service.LoggingCallback.*;
-import static com.epam.reportportal.utils.SubscriptionUtils.logCompletableResults;
-import static com.epam.reportportal.utils.SubscriptionUtils.logMaybeResults;
-import static com.google.common.collect.Lists.newArrayList;
 
 /**
  * @author Andrei Varabyeu
@@ -159,7 +173,14 @@ public class LaunchImpl extends Launch {
 				.andThen(this.launch.flatMap(new Function<String, Maybe<OperationCompletionRS>>() {
 					@Override
 					public Maybe<OperationCompletionRS> apply(String id) throws Exception {
-						return rpClient.finishLaunch(id, rq).doOnSuccess(LOG_SUCCESS).doOnError(LOG_ERROR);
+						return rpClient.finishLaunch(id, rq)
+								.doOnSuccess(LOG_SUCCESS)
+								.doOnError(new Consumer<Throwable>() {
+									@Override
+									public void accept(Throwable throwable) throws Exception {
+										handleFinishError(throwable, rq);
+									}
+								});
 					}
 				})).doFinally(new Action() {
 					@Override
@@ -173,6 +194,34 @@ public class LaunchImpl extends Launch {
 			finish.timeout(getParameters().getReportingTimeout(), TimeUnit.SECONDS).blockingGet();
 		} catch (Exception e) {
 			LOGGER.error("Unable to finish launch in ReportPortal", e);
+		}
+	}
+
+	private void handleFinishError(Throwable throwable, FinishExecutionRQ rq) throws Exception {
+		if (getParameters().isForceFinishLaunch()
+				&& throwable.getMessage().contains("INCORRECT_FINISH_STATUS")) {
+			LOGGER.info("Unable to finish launch due to incorrect status - stopping instead");
+			stop(rq);
+		} else {
+			LOG_ERROR.accept(throwable);
+		}
+	}
+
+	private void stop(final FinishExecutionRQ rq) {
+		final Completable stop = this.launch.flatMap(new Function<String, Maybe<OperationCompletionRS>>() {
+			 @Override
+			 public Maybe<OperationCompletionRS> apply(String id) throws Exception {
+				 return rpClient.stopLaunch(id, rq)
+						 .doOnSuccess(LOG_SUCCESS)
+						 .doOnError(LOG_ERROR);
+			 }
+		})
+		.ignoreElement()
+		.cache();
+		try {
+			stop.timeout(getParameters().getReportingTimeout(), TimeUnit.SECONDS).blockingGet();
+		} catch (Exception e) {
+			LOGGER.error("Unable to stop launch in ReportPortal", e);
 		}
 	}
 

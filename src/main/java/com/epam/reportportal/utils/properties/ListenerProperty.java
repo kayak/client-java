@@ -33,6 +33,7 @@ public enum ListenerProperty {
     KEYSTORE_PASSWORD("rp.keystore.password", false),
     REPORTING_TIMEOUT("rp.reporting.timeout", false),
     MODE("rp.mode", false),
+    FORCE_FINISH_LAUNCH("rp.force.finish.launch", false),
     ENABLE("rp.enable", false),
     RERUN("rp.rerun", false),
     SKIPPED_AS_ISSUE("rp.skipped.issue", false),
